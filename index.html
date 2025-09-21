@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webpage Legitimacy Checker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fade-in {
+            animation: fadeIn 0.5s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-6 text-center">Webpage Legitimacy Checker</h1>
+        <div class="mb-4">
+            <label for="urlInput" class="block text-sm font-medium text-gray-700">Enter Webpage URL</label>
+            <input type="text" id="urlInput" placeholder="https://www.example.com" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+        </div>
+        <button onclick="checkWebsite()" class="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 transition-colors">Check Webpage</button>
+        
+        <div id="result-container" class="mt-4 hidden fade-in">
+            <p id="result" class="text-center font-medium"></p>
+            <p id="error-message" class="mt-2 text-center text-orange-600 text-sm hidden"></p>
+        </div>
+        
+        <img id="screenshot" class="mt-4 w-full max-w-xs mx-auto hidden rounded-md border border-gray-200 fade-in" alt="Webpage Screenshot">
+    </div>
+    <script>
+        async function checkWebsite() {
+            const url = document.getElementById('urlInput').value;
+            const resultElement = document.getElementById('result');
+            const errorElement = document.getElementById('error-message');
+            const resultContainer = document.getElementById('result-container');
+            const screenshotElement = document.getElementById('screenshot');
+            
+            // Reset UI
+            resultElement.textContent = 'Checking...';
+            resultElement.className = 'text-center font-medium text-blue-600';
+            errorElement.classList.add('hidden');
+            resultContainer.classList.remove('hidden');
+            screenshotElement.classList.add('hidden');
+            
+            // Basic validation
+            if (!url) {
+                resultElement.textContent = 'Please enter a URL';
+                resultElement.className = 'text-center font-medium text-red-600';
+                return;
+            }
+            
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                resultElement.textContent = 'URL must start with http:// or https://';
+                resultElement.className = 'text-center font-medium text-red-600';
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://127.0.0.1:5001/check-website', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('Server response:', data);
+                
+                resultElement.textContent = data.result;
+                
+                if (data.result.toLowerCase().includes('real and seems safe')) {
+                    resultElement.className = 'text-center font-medium text-green-600';
+                } else {
+                    resultElement.className = 'text-center font-medium text-red-600';
+                }
+                
+                if (data.screenshot) {
+                    console.log('Screenshot received');
+                    screenshotElement.src = `data:image/png;base64,${data.screenshot}`;
+                    screenshotElement.classList.remove('hidden');
+                    
+                    // Clear any previous error
+                    errorElement.classList.add('hidden');
+                } else {
+                    console.log('No screenshot received');
+                    screenshotElement.classList.add('hidden');
+                }
+                
+                // Show error message if screenshot failed but website is real
+                if (data.error && data.result.toLowerCase().includes('real and seems safe')) {
+                    errorElement.textContent = `Note: Could not capture screenshot. ${data.error}`;
+                    errorElement.classList.remove('hidden');
+                }
+                
+            } catch (error) {
+                console.error('Fetch error:', error);
+                resultElement.textContent = `Error checking webpage: ${error.message}`;
+                resultElement.className = 'text-center font-medium text-red-600';
+                screenshotElement.classList.add('hidden');
+                errorElement.classList.add('hidden');
+            }
+        }
+        
+        // Allow submitting with Enter key
+        document.getElementById('urlInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                checkWebsite();
+            }
+        });
+    </script>
+</body>
+</html>
